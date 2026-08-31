@@ -32,6 +32,22 @@ jobs:
           echo "dependency_overrides:" >> pubspec.yaml
           echo "  ffi: ^2.1.0" >> pubspec.yaml
 
+      - name: Fix Android compileSdk
+        working-directory: ${{ env.PROJECT_DIR }}/android
+        run: |
+          cat >> build.gradle << 'GRADLE_EOF'
+
+          subprojects {
+              afterEvaluate { project ->
+                  if (project.hasProperty("android")) {
+                      project.android {
+                          compileSdkVersion 36
+                      }
+                  }
+              }
+          }
+          GRADLE_EOF
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
