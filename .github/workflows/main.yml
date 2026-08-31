@@ -34,16 +34,9 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         run: flutter pub get
 
-      - name: Generate modern Gradle wrapper
-        working-directory: ${{ env.PROJECT_DIR }}/android
-        run: gradle wrapper --gradle-version 8.14.1
-
-      - name: Build APK
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: flutter build apk --release
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Setup Gradle 8.14.1
+        uses: gradle/actions/setup-gradle@v4
         with:
-          name: zuparty-apk
-          path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          gradle-version: 8.14.1
+
+      - name: Gener
