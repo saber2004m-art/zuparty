@@ -25,6 +25,13 @@ jobs:
           fi
           echo "PROJECT_DIR=$(dirname "$PUBSPEC")" >> $GITHUB_ENV
 
+      - name: Fix dependency conflict
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          echo "" >> pubspec.yaml
+          echo "dependency_overrides:" >> pubspec.yaml
+          echo "  ffi: ^2.1.0" >> pubspec.yaml
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
