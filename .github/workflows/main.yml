@@ -34,9 +34,13 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         run: flutter pub get
 
+      - name: Generate modern Gradle wrapper
+        working-directory: ${{ env.PROJECT_DIR }}/android
+        run: gradle wrapper --gradle-version 8.14.1
+
       - name: Build APK
         working-directory: ${{ env.PROJECT_DIR }}
-        run: flutter build apk --release --android-skip-build-dependency-validation
+        run: flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
