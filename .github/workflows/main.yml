@@ -66,8 +66,10 @@ jobs:
           set -euo pipefail
           find "$PUB_CACHE" -path "*/android/build.gradle" -print0 2>/dev/null | \
           while IFS= read -r -d '' f; do
-            sed -i -E 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/' "$f"
-            sed -i -E 's/compileSdk[[:space:]]+[0-9]+/compileSdk 36/' "$f"
+            echo "Checking: $f"
+            grep -n "compileSdk" "$f" || true
+            sed -i -E 's/compileSdkVersion[[:space:]]+[^ ]+/compileSdkVersion 36/' "$f"
+            sed -i -E 's/compileSdk[[:space:]]+[^ ]+/compileSdk 36/' "$f"
           done
           echo "Patched plugin build.gradle files."
 
