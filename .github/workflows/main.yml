@@ -2,9 +2,6 @@ name: Build APK
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 jobs:
   build:
@@ -14,146 +11,71 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find project ZIP
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          ZIP_FILE="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -iname '*.zip' -print -quit)"
-
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No ZIP project found in repository root."
-            exit 1
-          fi
-
-          echo "ZIP_FILE=$ZIP_FILE" >> "$GITHUB_ENV"
-          echo "Using ZIP: $ZIP_FILE"
-
       - name: Extract project
-        shell: bash
         run: |
-          set -euo pipefail
-
-          rm -rf "$GITHUB_WORKSPACE/project"
-          mkdir -p "$GITHUB_WORKSPACE/project"
-
-          unzip -q "$ZIP_FILE" -d "$GITHUB_WORKSPACE/project"
-
-          echo "Extracted project:"
-          find "$GITHUB_WORKSPACE/project" -maxdepth 3 -type f \
-            \( -name "pubspec.yaml" -o -name "build.gradle" -o -name "settings.gradle" \) \
-            -print
+          mkdir project
+          unzip -q Zuparty_FINAL_WITH_ICON_AND_SIGNUP.zip -d project
 
       - name: Find Flutter project
-        shell: bash
         run: |
-          set -euo pipefail
-
-          PUBSPEC="$(find "$GITHUB_WORKSPACE/project" -type f -name pubspec.yaml -print -quit)"
-
+          PUBSPEC=$(find project -name pubspec.yaml -type f | head -n 1)
           if [ -z "$PUBSPEC" ]; then
-            echo "ERROR: pubspec.yaml not found inside ZIP."
-            echo "ZIP contents:"
-            find "$GITHUB_WORKSPACE/project" -maxdepth 4 -type f | head -200
+            echo "pubspec.yaml not found"
             exit 1
           fi
+          echo "PROJECT_DIR=$(dirname "$PUBSPEC")" >> $GITHUB_ENV
 
-          PROJECT_DIR="$(dirname "$PUBSPEC")"
+      - name: Fix dependency conflict
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          echo "" >> pubspec.yaml
+          echo "dependency_overrides:" >> pubspec.yaml
+          echo "  ffi: ^2.1.0" >> pubspec.yaml
 
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Flutter project found at: $PROJECT_DIR"
+      - name: Fix Android compileSdk
+        working-directory: ${{ env.PROJECT_DIR }}/android
+        run: |
+          cat >> build.gradle << 'GRADLE_EOF'
 
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+          subprojects {
+              plugins.withId("com.android.application") {
+                  android { compileSdkVersion 36 }
+              }
+              plugins.withId("com.android.library") {
+                  android { compileSdkVersion 36 }
+              }
+          }
+          GRADLE_EOF
 
-      - name: Set up Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: true
 
-      - name: Set up Android SDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK packages
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          sdkmanager "platform-tools"
-          sdkmanager "platforms;android-36"
-          sdkmanager "build-tools;36.0.0"
-
-      - name: Fix Android Gradle configuration
-        working-directory: ${{ env.PROJECT_DIR }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ -f android/build.gradle ]; then
-            python3 - <<'PY'
-from pathlib import Path
-
-p = Path("android/build.gradle")
-s = p.read_text()
-
-old = '''subprojects {
-    project.evaluationDependsOn(":app")
-}
-
-'''
-
-if old in s:
-    s = s.replace(old, "")
-    p.write_text(s)
-    print("Removed incompatible evaluationDependsOn block.")
-else:
-    print("evaluationDependsOn block not found; no change needed.")
-PY
-          fi
-
-      - name: Show Flutter version
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: flutter --version
-
-      - name: Flutter doctor
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: flutter doctor -v
-
-      - name: Clean project
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: flutter clean
+        with:
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0"
 
       - name: Get dependencies
         working-directory: ${{ env.PROJECT_DIR }}
         run: flutter pub get
 
-      - name: Build release APK
+      - name: Setup Gradle 8.14.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14.1
+
+      - name: Generate modern Gradle wrapper
+        working-directory: ${{ env.PROJECT_DIR }}/android
+        run: gradle wrapper --gradle-version 8.14.1
+
+      - name: Build APK
         working-directory: ${{ env.PROJECT_DIR }}
         run: flutter build apk --release
-
-      - name: Verify APK
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          APK="${PROJECT_DIR}/build/app/outputs/flutter-apk/app-release.apk"
-
-          if [ ! -f "$APK" ]; then
-            echo "ERROR: APK was not generated."
-            find "$PROJECT_DIR/build" -type f 2>/dev/null | head -200 || true
-            exit 1
-          fi
-
-          echo "APK successfully generated:"
-          ls -lh "$APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: zuparty-release-apk
+          name: zuparty-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
