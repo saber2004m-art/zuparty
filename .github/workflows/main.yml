@@ -39,10 +39,14 @@ jobs:
 
           subprojects {
               plugins.withId("com.android.application") {
-                  android { compileSdkVersion 36 }
+                  afterEvaluate {
+                      android { compileSdkVersion 36 }
+                  }
               }
               plugins.withId("com.android.library") {
-                  android { compileSdkVersion 36 }
+                  afterEvaluate {
+                      android { compileSdkVersion 36 }
+                  }
               }
           }
           GRADLE_EOF
