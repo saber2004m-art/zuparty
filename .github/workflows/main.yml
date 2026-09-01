@@ -14,7 +14,7 @@ jobs:
       - name: Extract project
         run: |
           mkdir project
-          unzip -q Zuparty_FIXED_v13.zip -d project
+          unzip -q Zuparty_v3_icons-wired_2026-09-01.zip -d project
 
       - name: Find Flutter project
         run: |
@@ -89,5 +89,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: zuparty-apk
+          name: app-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
