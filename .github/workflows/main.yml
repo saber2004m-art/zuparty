@@ -13,15 +13,14 @@ jobs:
 
       - name: Extract project
         run: |
+          set -euo pipefail
           mkdir project
-          echo "Repo root contents:"
-          ls -la
-          ZIP_FILE="Zuparty_v3_connected_FIXED.zip"
-          if [ ! -f "$ZIP_FILE" ]; then
-            echo "ZIP file not found: $ZIP_FILE"
+          ZIP_FILE=$(find . -maxdepth 3 -iname "*.zip" -type f | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No .zip file found in the repo"
             exit 1
           fi
-          echo "Using zip file: $ZIP_FILE"
+          echo "Using zip: $ZIP_FILE"
           unzip -q "$ZIP_FILE" -d project
 
       - name: Find Flutter project
@@ -32,39 +31,6 @@ jobs:
             exit 1
           fi
           echo "PROJECT_DIR=$(dirname "$PUBSPEC")" >> $GITHUB_ENV
-
-      - name: Patch known Dart build issues
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          python3 - << 'PYEOF'
-          import pathlib
-
-          f = pathlib.Path("lib/services/zuparty_backend.dart")
-          src = f.read_text()
-          changed = False
-
-          if "dart:typed_data" not in src:
-              src = src.replace("import 'dart:math';", "import 'dart:math';\nimport 'dart:typed_data';", 1)
-              changed = True
-
-          old_search = "    var req = client\n        .from('zp_profiles')\n        .select('id,display_name,avatar_url,gender,level,vip_until,updated_at')\n        .order('updated_at', ascending: false)\n        .limit(50);\n    if (q.isNotEmpty) req = req.ilike('display_name', '%$q%');\n    final rows = await req;"
-          new_search = "    final base = client\n        .from('zp_profiles')\n        .select('id,display_name,avatar_url,gender,level,vip_until,updated_at');\n    final filtered = q.isNotEmpty ? base.ilike('display_name', '%$q%') : base;\n    final rows = await filtered.order('updated_at', ascending: false).limit(50);"
-          if old_search in src:
-              src = src.replace(old_search, new_search, 1)
-              changed = True
-
-          old_upload = "    await client.storage.from('avatars').uploadBinary(\n      path,\n      bytes,\n      fileOptions: FileOptions(contentType: 'image/$ext', upsert: true),\n    );"
-          new_upload = "    await client.storage.from('avatars').uploadBinary(\n      path,\n      Uint8List.fromList(bytes),\n      fileOptions: FileOptions(contentType: 'image/$ext', upsert: true),\n    );"
-          if old_upload in src:
-              src = src.replace(old_upload, new_upload, 1)
-              changed = True
-
-          if changed:
-              f.write_text(src)
-              print("Patched lib/services/zuparty_backend.dart.")
-          else:
-              print("No matching patterns found (file may already be fixed) - left as is.")
-          PYEOF
 
       - name: Fix dependency conflict
         working-directory: ${{ env.PROJECT_DIR }}
@@ -130,5 +96,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
+          name: zuparty-release-apk
           path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
