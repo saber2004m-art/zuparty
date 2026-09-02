@@ -54,6 +54,12 @@ jobs:
           }
           GRADLE_EOF
 
+      - name: Fix keystore path
+        working-directory: ${{ env.PROJECT_DIR }}/android
+        run: |
+          sed -i "s#storeFile = file(keystoreProperties\['storeFile'\])#storeFile = rootProject.file(keystoreProperties['storeFile'])#" app/build.gradle
+          grep -n "storeFile" app/build.gradle
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
