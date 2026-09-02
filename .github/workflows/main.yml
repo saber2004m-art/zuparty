@@ -14,7 +14,15 @@ jobs:
       - name: Extract project
         run: |
           mkdir project
-          unzip -q Zuparty_v3_icons-wired_2026-09-01.zip -d project
+          echo "Repo root contents:"
+          ls -la
+          ZIP_FILE=$(find . -maxdepth 1 -iname "*.zip" | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No .zip file found at repo root."
+            exit 1
+          fi
+          echo "Using zip file: $ZIP_FILE"
+          unzip -q "$ZIP_FILE" -d project
 
       - name: Find Flutter project
         run: |
